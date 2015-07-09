@@ -54,7 +54,9 @@ abstract class Base_API {
 	function is_user_admin() {
 		$user          = wp_get_current_user();
 		$allowed_roles = array( 'editor', 'administrator', 'author' );
-
+		if ( is_super_admin( $user->ID ) ) {
+			return true;
+		}
 		return ( array_intersect( $allowed_roles, $user->roles ) );
 	}
 
@@ -75,10 +77,14 @@ abstract class Base_API {
 		$api      = explode( '/', $wp_query->query_vars[ static::$rewrite_endpoint ] );
 		$endpoint = array_shift( $api );
 
-		if ( ( ! in_array( $endpoint, static::$front_endpoints ) && ! in_array( $endpoint, static::$admin_endpoints ) ) ||
+		if ( ( ! in_array( $endpoint, static::$front_endpoints ) && ! $admin = in_array( $endpoint, static::$admin_endpoints ) ) ||
 		     ! method_exists( $this, $endpoint )
 		) {
 			wp_send_json_error( 'endpoint does not exist.' );
+		}
+
+		if ( $admin && ! $this->is_user_admin() ) {
+			wp_send_json_error( 'admin endpoint only.' );
 		}
 		call_user_func_array( array( $this, $endpoint ), $api );
 	}
