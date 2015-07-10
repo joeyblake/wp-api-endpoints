@@ -15,6 +15,12 @@ class MyAjax extends Base_API {
 	 */
 	protected static $front_endpoints = array( 'some_endpoint', 'another_endpoint' );
 
+	/**
+	 * Possible admin only endpoints, a user without permissions will get an error trying to request this
+	 * @var array
+	 */
+	protected static $admin_endpoints = array( 'an_admin_endpoint' );
+
 	function some_endpoint() {
 		//when there are many parameters for a method call, keeping them in order with an array of keys is easier to read
 		$keys = array(
@@ -46,5 +52,10 @@ class MyAjax extends Base_API {
 		} else {
 			wp_send_json_error('No fake results');
 		}
+	}
+
+	function an_admin_endpoint( ) {
+		$param = sanitize_text_field( $_POST['data'] );
+		wp_send_json( SpecialAdmin::doSomething( $param ) );
 	}
 }
