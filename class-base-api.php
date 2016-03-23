@@ -162,6 +162,14 @@ abstract class Base_API {
 
 		$data = call_user_func_array( array( $this, $endpoint ), $api );
 
+		// Check for WP_Error response
+		if ( is_wp_error( $data ) ) {
+			/**
+			 * @var $data \WP_Error
+			 */
+			wp_send_json_error( $data->get_error_message() );
+		}
+
 		status_header( 200 );
 
 		$http_origin = $_SERVER['HTTP_ORIGIN'];
