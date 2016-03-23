@@ -141,7 +141,6 @@ abstract class Base_API {
 		$api = explode( '/', $wp_query->query_vars[ static::$rewrite_endpoint ] );
 
 		$endpoint = array_shift( $api );
-		$endpoint = str_replace( '-', '_', $endpoint );
 
 		$is_front_endpoint = false;
 		$is_admin_endpoint = false;
@@ -162,7 +161,9 @@ abstract class Base_API {
 			wp_send_json_error( __( 'This is an admin-only endpoint.', 'base-api' ) );
 		}
 
-		$data = call_user_func_array( array( $this, $endpoint ), $api );
+		$endpoint_method = str_replace( '-', '_', $endpoint );
+
+		$data = call_user_func_array( array( $this, $endpoint_method ), $api );
 
 		// Check for WP_Error response
 		if ( is_wp_error( $data ) ) {
