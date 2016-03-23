@@ -1,13 +1,17 @@
 <?php
-
 /**
  * Class Base_API
- * Sets up scaffold for creating ajax endpoints, allows cachable GET requests
+ *
+ * Sets up scaffold for creating ajax endpoints, allows cacheable GET requests.
  */
 abstract class Base_API {
 
 	/**
-	 * Rewrite url endpoint for api to answer to overrideable in implementation class
+	 * Rewrite url endpoint for api to answer to, can be overridden by implementation class.
+	 *
+	 * @protected
+	 * @static
+	 *
 	 * @var string
 	 */
 	protected static $rewrite_endpoint = 'api';
@@ -15,103 +19,178 @@ abstract class Base_API {
 	/**
 	 * Method names that follow $rewrite_endpoint ex. /api/$front_endpoint
 	 * for unauthenticated use.
+	 *
+	 * @protected
+	 * @static
+	 *
 	 * @var array
 	 */
 	protected static $front_endpoints = array();
 
 	/**
 	 * Method names that follow $rewrite_endpoint ex. /api/$admin_endpoints
-	 * for authenticated use
+	 * for authenticated use.
+	 *
+	 * @protected
+	 * @static
+	 *
 	 * @var array
 	 */
 	protected static $admin_endpoints = array();
-	
-	/**
-	 * Allowed origins for cross domain api access
-	 */
- 	protected $allowed_origins = array();
 
-	function __construct() {
+	/**
+	 * Allowed origins for cross domain api access.
+	 *
+	 * @protected
+	 *
+	 * @var array
+	 */
+	protected $allowed_origins = array();
+
+	/**
+	 * Base_API constructor.
+	 */
+	public function __construct() {
+
 		add_action( 'init', array( $this, 'init' ) );
 		add_action( 'template_redirect', array( $this, 'api_endpoint_template_redirect' ) );
+
 	}
 
 	/**
 	 * Sets up rewrite endpoint
 	 */
-	function init() {
-		//adds api endpoint
+	public function init() {
+
+		// Add API Endpoint
 		add_rewrite_endpoint( static::$rewrite_endpoint, EP_ROOT );
+
 	}
 
 	/**
 	 * Helper function for checking request type
-	 * @return mixed
+	 *
+	 * @return string
 	 */
-	function request_type() {
+	public function request_type() {
+
 		return $_SERVER['REQUEST_METHOD'];
+
 	}
 
 	/**
 	 * Helper function for checking authentication status
+	 *
 	 * @return array
 	 */
-	function is_user_admin() {
-		$user          = wp_get_current_user();
-		$allowed_roles = array( 'editor', 'administrator', 'author' );
-		if ( is_super_admin( $user->ID ) ) {
-			return true;
+	public function is_user_admin() {
+
+		$is_admin = false;
+
+		if ( is_user_logged_in() ) {
+			$user = wp_get_current_user();
+
+			$allowed_roles = array(
+				'editor',
+				'administrator',
+				'author'
+			);
+
+			/**
+			 * Get the allowed roles for admin endpoint access.
+			 *
+			 * @param array $allowed_roles Allowed roles for admin access
+			 */
+			$allowed_roles = apply_filters( 'base_api_allowed_roles', $allowed_roles );
+
+			if ( is_super_admin( $user->ID ) ) {
+				$is_admin = true;
+			} else {
+				$intersection = array_intersect( $allowed_roles, $user->roles );
+
+				if ( $intersection ) {
+					$is_admin = true;
+				}
+			}
 		}
-		return ( array_intersect( $allowed_roles, $user->roles ) );
+
+		return $is_admin;
+
 	}
 
 	/**
 	 * Handles template redirect requests. Checks if endpoint is valid and if
 	 * user should be authenticated, routes request to proper handler function
 	 */
-	function api_endpoint_template_redirect() {
+	public function api_endpoint_template_redirect() {
+
+		/**
+		 * @var $wp_query \WP_Query
+		 */
 		global $wp_query;
 
 		if ( empty( $wp_query->query_vars[ static::$rewrite_endpoint ] ) ) {
 			return;
 		}
 
-		//allows use of DOING_AJAX content just like admin-ajax requests
-		define( 'DOING_AJAX', true );
+		// Allows use of DOING_AJAX content just like admin-ajax requests
+		if ( ! defined( 'DOING_AJAX' ) ) {
+			define( 'DOING_AJAX', true );
+		}
 
 		$api      = explode( '/', $wp_query->query_vars[ static::$rewrite_endpoint ] );
 		$endpoint = array_shift( $api );
 
-		if ( ( ! in_array( $endpoint, static::$front_endpoints ) && ! $admin = in_array( $endpoint, static::$admin_endpoints ) ) ||
-		     ! method_exists( $this, $endpoint )
-		) {
-			wp_send_json_error( 'endpoint does not exist.' );
+		$is_front_endpoint = false;
+		$is_admin_endpoint = false;
+
+		if ( in_array( $endpoint, static::$front_endpoints ) ) {
+			$is_front_endpoint = true;
 		}
 
-		if ( $admin && ! $this->is_user_admin() ) {
-			wp_send_json_error( 'admin endpoint only.' );
+		if ( in_array( $endpoint, static::$admin_endpoints ) ) {
+			$is_admin_endpoint = true;
 		}
+
+		if ( ( ! $is_front_endpoint && ! $is_admin_endpoint ) || ! method_exists( $this, $endpoint ) ) {
+			wp_send_json_error( __( 'This endpoint does not exist.', 'base-api' ) );
+		}
+
+		if ( $is_admin_endpoint && ! $this->is_user_admin() ) {
+			wp_send_json_error( __( 'This is an admin-only endpoint.', 'base-api' ) );
+		}
+
 		$data = call_user_func_array( array( $this, $endpoint ), $api );
-		
+
 		status_header( 200 );
+
 		$http_origin = $_SERVER['HTTP_ORIGIN'];
+
 		if ( in_array( $http_origin, $this->allowed_origins, true ) ) {
-			header("Access-Control-Allow-Credentials: true");
-			header("Access-Control-Allow-Origin: $http_origin");
+			header( 'Access-Control-Allow-Credentials: true' );
+			header( 'Access-Control-Allow-Origin: ' . $http_origin );
 		}
+
 		header( 'Content-type: application/json' );
-		exit( wp_json_encode( $data ) );
+
+		wp_send_json_success( $data );
+
 	}
 
 	/**
-	 * With "/" delimited params there are times when defaults are needed in the url, but they aren't needed
+	 * With "/" delimited params there are times when defaults are needed in the url, but they are not needed
 	 * once there are keys mapped to the values. This function combined with array_walk dumps default keys
-	 * and values
+	 * and values.
 	 *
-	 * @param $item
-	 * @param $key
+	 * @param string $item
+	 * @param string $key
 	 */
-	function empty_defaults(&$item, $key) {
-		$item = ( 'default' === $item ) ? null : $item;
+	public function empty_defaults( &$item, $key ) {
+
+		if ( 'default' === $item ) {
+			$item = null;
+		}
+
 	}
+
 }
