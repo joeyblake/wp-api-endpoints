@@ -35,9 +35,9 @@ class MyAjax extends Base_API {
 		if ( $args = array_combine( $keys, func_get_args() ) ) {
 			array_walk( $args, array( $this, 'empty_defaults' ) );
 			$response = ExampleClass::some_data_method( $args );
-			wp_send_json( $response );
+			return $response;
 		} else {
-			wp_send_json_error('Parameters mismatch');
+			return array('Parameters mismatch');
 		}
 	}
 
@@ -48,14 +48,14 @@ class MyAjax extends Base_API {
 	 */
 	function another_endpoint( $arg1 = 'default', $arg2 = array() ) {
 		if ( $response = another_function_call( $arg1, $arg2 ) ) {
-			wp_send_json( $response );
+			return $response;
 		} else {
-			wp_send_json_error('No fake results');
+			return array('No fake results');
 		}
 	}
 
 	function an_admin_endpoint( ) {
 		$param = sanitize_text_field( $_POST['data'] );
-		wp_send_json( SpecialAdmin::doSomething( $param ) );
+		return SpecialAdmin::doSomething( $param );
 	}
 }
