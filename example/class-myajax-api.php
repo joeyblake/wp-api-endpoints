@@ -20,6 +20,11 @@ class MyAjax extends Base_API {
 	 * @var array
 	 */
 	protected static $admin_endpoints = array( 'an_admin_endpoint' );
+	
+	protected static $allowed_origins = array( 'http://somedifferentsite.com',
+		'http://vipfrontend.com', 
+		'http://vipbackend.com', 
+	);
 
 	function some_endpoint() {
 		//when there are many parameters for a method call, keeping them in order with an array of keys is easier to read
