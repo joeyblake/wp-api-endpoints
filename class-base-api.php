@@ -25,6 +25,11 @@ abstract class Base_API {
 	 * @var array
 	 */
 	protected static $admin_endpoints = array();
+	
+	/**
+	 * Allowed origins for cross domain api access
+	 */
+ 	protected $allowed_origins = array();
 
 	function __construct() {
 		add_action( 'init', array( $this, 'init' ) );
@@ -86,7 +91,16 @@ abstract class Base_API {
 		if ( $admin && ! $this->is_user_admin() ) {
 			wp_send_json_error( 'admin endpoint only.' );
 		}
-		call_user_func_array( array( $this, $endpoint ), $api );
+		$data = call_user_func_array( array( $this, $endpoint ), $api );
+		
+		status_header( 200 );
+		$http_origin = $_SERVER['HTTP_ORIGIN'];
+		if ( in_array( $http_origin, $this->allowed_origins, true ) ) {
+			header("Access-Control-Allow-Credentials: true");
+			header("Access-Control-Allow-Origin: $http_origin");
+		}
+		header( 'Content-type: application/json' );
+		exit( wp_json_encode( $data ) );
 	}
 
 	/**
