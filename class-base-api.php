@@ -142,6 +142,8 @@ abstract class Base_API {
 
 		$endpoint = array_shift( $api );
 
+		$endpoint_method = str_replace( '-', '_', $endpoint );
+
 		$is_front_endpoint = false;
 		$is_admin_endpoint = false;
 
@@ -153,15 +155,13 @@ abstract class Base_API {
 			$is_admin_endpoint = true;
 		}
 
-		if ( ( ! $is_front_endpoint && ! $is_admin_endpoint ) || ! method_exists( $this, $endpoint ) ) {
+		if ( ( ! $is_front_endpoint && ! $is_admin_endpoint ) || ! method_exists( $this, $endpoint_method ) ) {
 			wp_send_json_error( __( 'This endpoint does not exist.', 'base-api' ) );
 		}
 
 		if ( $is_admin_endpoint && ! $this->is_user_admin() ) {
 			wp_send_json_error( __( 'This is an admin-only endpoint.', 'base-api' ) );
 		}
-
-		$endpoint_method = str_replace( '-', '_', $endpoint );
 
 		$data = call_user_func_array( array( $this, $endpoint_method ), $api );
 
