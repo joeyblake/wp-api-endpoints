@@ -138,8 +138,10 @@ abstract class Base_API {
 			define( 'DOING_AJAX', true );
 		}
 
-		$api      = explode( '/', $wp_query->query_vars[ static::$rewrite_endpoint ] );
+		$api = explode( '/', $wp_query->query_vars[ static::$rewrite_endpoint ] );
+
 		$endpoint = array_shift( $api );
+		$endpoint = str_replace( '-', '_', $endpoint );
 
 		$is_front_endpoint = false;
 		$is_admin_endpoint = false;
